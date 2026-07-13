@@ -1,0 +1,48 @@
+name: Deploy Website to Amazon Linux EC2
+
+on:
+  push:
+    branches:
+      - main
+
+jobs:
+  deploy:
+    runs-on: ubuntu-latest
+
+    steps:
+      # Download the repository
+      - name: Checkout Repository
+        uses: actions/checkout@v4
+
+      # Copy website files to EC2
+      - name: Copy Website to EC2
+        uses: appleboy/scp-action@v0.1.7
+        with:
+          host: ${{ secrets.EC2_HOST }}
+          username: ec2-user
+          key: ${{ secrets.EC2_SSH_KEY }}
+          source: "."
+          target: "/home/ec2-user"
+
+      # Install Apache and deploy the website
+      - name: Deploy Website
+        uses: appleboy/ssh-action@v1.2.0
+        with:
+          host: ${{ secrets.EC2_HOST }}
+          username: ec2-user
+          key: ${{ secrets.EC2_SSH_KEY }}
+          script: |
+            sudo dnf update -y
+            sudo dnf install -y httpd
+            sudo systemctl enable httpd
+            sudo systemctl start httpd
+
+            sudo rm -rf /var/www/html/*
+            sudo cp -r /home/ec2-user/* /var/www/html/
+
+            sudo chown -R apache:apache /var/www/html
+            sudo chmod -R 755 /var/www/html
+
+            sudo systemctl restart httpd
+
+            echo "Deployment Successful!"
